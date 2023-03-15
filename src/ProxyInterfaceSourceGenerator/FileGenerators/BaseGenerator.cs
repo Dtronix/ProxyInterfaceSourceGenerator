@@ -146,11 +146,6 @@ internal abstract class BaseGenerator
 
         if (TryFindProxyDataByTypeName(typeSymbolAsString, out var existing))
         {
-            if (!Context.ReplacedTypes.ContainsKey(typeSymbolAsString))
-            {
-                Context.ReplacedTypes.Add(typeSymbolAsString, existing.FullInterfaceName);
-            }
-
             isReplaced = true;
             return FixType(existing.FullInterfaceName);
         }
@@ -177,11 +172,6 @@ internal abstract class BaseGenerator
             if (TryFindProxyDataByTypeName(typeArgumentAsString, out var existingTypeArgument))
             {
                 isReplaced = true;
-
-                if (!Context.ReplacedTypes.ContainsKey(typeArgumentAsString))
-                {
-                    Context.ReplacedTypes.Add(typeArgumentAsString, existingTypeArgument.FullInterfaceName);
-                }
 
                 propertyTypeAsStringToBeModified = propertyTypeAsStringToBeModified.Replace(typeArgumentAsString, existingTypeArgument.FullInterfaceName);
             }

@@ -24,26 +24,10 @@ namespace ProxyInterfaceGenerator
     [AttributeUsage(AttributeTargets.Interface)]
     internal sealed class ProxyAttribute : Attribute
     {{
-        public Type Type {{ get; }}
-        public bool ProxyBaseClasses {{ get; }}
         public ProxyClassAccessibility Accessibility {{ get; }}
 
-        public ProxyAttribute(Type type) : this(type, false, ProxyClassAccessibility.Public)
+        public ProxyAttribute(ProxyClassAccessibility accessibility)
         {{
-        }}
-
-        public ProxyAttribute(Type type, bool proxyBaseClasses) : this(type, proxyBaseClasses, ProxyClassAccessibility.Public)
-        {{
-        }}
-
-        public ProxyAttribute(Type type, ProxyClassAccessibility accessibility) : this(type, false, accessibility)
-        {{
-        }}
-
-        public ProxyAttribute(Type type, bool proxyBaseClasses, ProxyClassAccessibility accessibility)
-        {{
-            Type = type;
-            ProxyBaseClasses = proxyBaseClasses;
             Accessibility = accessibility;
         }}
     }}

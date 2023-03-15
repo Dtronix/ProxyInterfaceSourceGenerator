@@ -76,16 +76,9 @@ internal partial class ProxyClassesGenerator : BaseGenerator, IFilesGenerator
         }
 
         var @abstract = string.Empty; // targetClassSymbol.Symbol.IsAbstract ? "abstract " : string.Empty;
-        var properties = GeneratePublicProperties(targetClassSymbol, pd.ProxyBaseClasses);
         var methods = GeneratePublicMethods(targetClassSymbol, pd.ProxyBaseClasses);
-        var events = GenerateEvents(targetClassSymbol, pd.ProxyBaseClasses);
-        var operators = GenerateOperators(targetClassSymbol, pd.ProxyBaseClasses);
 
         var configurationForMapster = string.Empty;
-        if (Context.ReplacedTypes.Any())
-        {
-            configurationForMapster = GenerateMapperConfigurationForMapster();
-        }
 
         var (namespaceStart, namespaceEnd) = NamespaceBuilder.Build(pd.Namespace);
 
@@ -109,13 +102,7 @@ using System;
         public {@new}{targetClassSymbol.Symbol} _Instance {{ get; }}
         {instanceBaseDefinition}
 
-{properties}
-
 {methods}
-
-{events}
-
-{operators}
 
         public {constructorName}({targetClassSymbol} instance){@base}
         {{
@@ -127,72 +114,6 @@ using System;
     }}
 {namespaceEnd}
 {(SupportsNullable ? "#nullable disable" : string.Empty)}";
-    }
-
-    private string GeneratePublicProperties(ClassSymbol targetClassSymbol, bool proxyBaseClasses)
-    {
-        var str = new StringBuilder();
-
-        foreach (var property in MemberHelper.GetPublicProperties(targetClassSymbol, proxyBaseClasses))
-        {
-            var type = GetPropertyType(property, out var isReplaced);
-
-            var instance = !property.IsStatic ?
-                "_Instance" :
-                $"{targetClassSymbol.Symbol}";
-
-            var propertyName = property.GetSanitizedName();
-            var instancePropertyName = $"{instance}.{propertyName}";
-            if (property.IsIndexer)
-            {
-                var parameters = GetMethodParameters(property.Parameters, true);
-                propertyName = $"this[{string.Join(", ", parameters)}]";
-
-                var instanceParameters = GetMethodParameters(property.Parameters, false);
-                instancePropertyName = $"{instance}[{string.Join(", ", instanceParameters)}]";
-            }
-
-            var overrideOrVirtual = string.Empty;
-            if (property.IsOverride)
-            {
-                overrideOrVirtual = "override ";
-            }
-            else if (property.IsVirtual)
-            {
-                overrideOrVirtual = "virtual ";
-            }
-
-            var getIsPublic = property.GetMethod.IsPublic();
-            var setIsPublic = property.SetMethod.IsPublic();
-
-            if (!getIsPublic && !setIsPublic)
-            {
-                continue;
-            }
-
-            string get;
-            string set;
-            if (isReplaced)
-            {
-                get = getIsPublic ? $"get => Mapster.TypeAdapter.Adapt<{type}>({instancePropertyName}); " : string.Empty;
-                set = setIsPublic ? $"set => {instancePropertyName} = Mapster.TypeAdapter.Adapt<{property.Type}>(value); " : string.Empty;
-            }
-            else
-            {
-                get = getIsPublic ? $"get => {instancePropertyName}; " : string.Empty;
-                set = setIsPublic ? $"set => {instancePropertyName} = value; " : string.Empty;
-            }
-
-            foreach (var attribute in property.GetAttributesAsList())
-            {
-                str.AppendLine($"        {attribute}");
-            }
-
-            str.AppendLine($"        public {overrideOrVirtual}{type} {propertyName} {{ {get}{set}}}");
-            str.AppendLine();
-        }
-
-        return str.ToString();
     }
 
     private string GeneratePublicMethods(ClassSymbol targetClassSymbol, bool proxyBaseClasses)
@@ -301,77 +222,6 @@ using System;
             }
 
             str.AppendLine("        }");
-            str.AppendLine();
-        }
-
-        return str.ToString();
-    }
-
-    private string GenerateEvents(ClassSymbol targetClassSymbol, bool proxyBaseClasses)
-    {
-        var str = new StringBuilder();
-        foreach (var @event in MemberHelper.GetPublicEvents(targetClassSymbol, proxyBaseClasses))
-        {
-            var name = @event.Key.GetSanitizedName();
-            var ps = @event.First().Parameters.First();
-            var type = ps.GetTypeEnum() == TypeEnum.Complex ? GetParameterType(ps, out _) : ps.Type.ToString();
-
-            foreach (var attribute in ps.GetAttributesAsList())
-            {
-                str.AppendLine($"        {attribute}");
-            }
-
-            str.Append($"        public event {type} {name} {{");
-
-            if (@event.Any(e => e.MethodKind == MethodKind.EventAdd))
-            {
-                str.Append($" add {{ _Instance.{name} += value; }}");
-            }
-            if (@event.Any(e => e.MethodKind == MethodKind.EventRemove))
-            {
-                str.Append($" remove {{ _Instance.{name} -= value; }}");
-            }
-
-            str.AppendLine(" }");
-            str.AppendLine();
-        }
-
-        return str.ToString();
-    }
-
-    private string GenerateOperators(ClassSymbol targetClassSymbol, bool proxyBaseClasses)
-    {
-        var str = new StringBuilder();
-        foreach (var @operator in MemberHelper.GetPublicStaticOperators(targetClassSymbol, proxyBaseClasses))
-        {
-            foreach (var attribute in @operator.GetAttributesAsList())
-            {
-                str.AppendLine($"        {attribute}");
-            }
-
-            var parameter = @operator.Parameters.First();
-            var proxyClassName = targetClassSymbol.Symbol.ResolveProxyClassName();
-
-            var operatorType = @operator.Name.ToLowerInvariant().Replace("op_", string.Empty);
-            if (operatorType == "explicit")
-            {
-                var returnTypeAsString = GetReplacedTypeAsString(@operator.ReturnType, out _);
-
-                str.AppendLine($"        public static explicit operator {returnTypeAsString}({proxyClassName} {parameter.Name})");
-                str.AppendLine(@"        {");
-                str.AppendLine($"            return ({returnTypeAsString}) {parameter.Name}._Instance;");
-                str.AppendLine(@"        }");
-            }
-            else
-            {
-                var returnTypeAsString = GetReplacedTypeAsString(parameter.Type, out _);
-
-                str.AppendLine($"        public static implicit operator {proxyClassName}({returnTypeAsString} {parameter.Name})");
-                str.AppendLine(@"        {");
-                str.AppendLine($"            return new {proxyClassName}(({targetClassSymbol.Symbol.Name}) {parameter.Name});");
-                str.AppendLine(@"        }");
-            }
-
             str.AppendLine();
         }
 
